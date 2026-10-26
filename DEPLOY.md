@@ -55,6 +55,19 @@ Suggested status mapping on the source:
 
 (Map to the schema attribute names you publish from aggregation/read.)
 
+## Account aggregation (1000 users, 500 per page)
+
+If aggregate stops at **500** with `[AGGREGATION_INCOMPLETE]` / `reason: noGrowth`, the harvester read one page but pagination did not add new rows.
+
+1. **Re-record** `account#aggregate` on the user list with pagination:
+   - **mode:** `nextButton`
+   - **selector:** `#btn-user-next` (an `<a>` when another page exists — not a disabled button)
+   - **maxPages:** at least `3` (1000 users ÷ 500 rows)
+   - **settleMs:** `500`–`1000`
+2. **Grid:** `#users-table`, rows `#user-rows > tr`, identity column **Username** (`td[data-identity]` or column 2).
+3. **Pre-steps:** sign-in → User Management → Users → `#/user-management/users/page/1`.
+4. After deploy, confirm manually: page 1 shows 1–500, click **Next**, URL becomes `.../users/page/2` and rows 501–1000 appear.
+
 ## Deploy on Render
 
 1. Push this folder to a GitHub repo (root = this directory).

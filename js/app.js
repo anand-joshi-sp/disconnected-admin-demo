@@ -182,8 +182,39 @@
     return "#/" + section;
   }
 
+  function usersListPageHash(page) {
+    var p = page || state.userPage || 1;
+    return "#/user-management/users/page/" + p;
+  }
+
+  function rolesListPageHash(page) {
+    var p = page || state.rolePage || 1;
+    return "#/user-management/roles/page/" + p;
+  }
+
   function usersListHash() {
-    return "#/user-management/users";
+    return usersListPageHash(1);
+  }
+
+  function goUserPage(page) {
+    state.userView = "list";
+    state.detailUserId = null;
+    state.userPage = page;
+    location.hash = usersListPageHash(page);
+    render();
+  }
+
+  function goRolePage(page) {
+    state.rolePage = page;
+    location.hash = rolesListPageHash(page);
+    render();
+  }
+
+  function pagerControl(id, label, href, enabled) {
+    if (!enabled) {
+      return '<span class="btn is-disabled" aria-disabled="true">' + esc(label) + "</span>";
+    }
+    return '<a href="' + href + '" class="btn pager-link" id="' + id + '">' + esc(label) + "</a>";
   }
 
   function setRoute(section, umTab) {
@@ -264,7 +295,7 @@
   function umSubNavHtml() {
     return UM_TABS.map(function (t) {
       var active = state.umTab === t.id ? " active" : "";
-      var href = t.id === "users" ? usersListHash() : navHash("user-management", t.id);
+      var href = t.id === "users" ? usersListPageHash(1) : (t.id === "roles" ? rolesListPageHash(1) : navHash("user-management", t.id));
       return '<a href="' + href + '" id="' + t.navId + '" class="sub-nav-link' + active + '">' + esc(t.label) + "</a>";
     }).join("");
   }
@@ -406,7 +437,7 @@
           return (
             "<tr class=\"" + (sel === u.userId ? "selected" : "") + "\" data-user-id=\"" + esc(u.userId) + "\">" +
               "<td><input type=\"radio\" name=\"user-pick\" class=\"user-row-pick\" value=\"" + esc(u.userId) + "\"" + (sel === u.userId ? " checked" : "") + " /></td>" +
-              "<td>" + esc(u.username) + "</td>" +
+              '<td data-identity="' + esc(u.username) + '">' + esc(u.username) + "</td>" +
               "<td>" + esc(u.userId) + "</td>" +
               "<td><span class=\"status-pill " + (u.status === "Enabled" ? "enabled" : "disabled") + "\" data-status=\"" + esc(u.status) + "\">" + esc(u.status) + "</span></td>" +
               "<td>" + esc(roleName(u.roleId)) + "</td>" +
@@ -423,11 +454,11 @@
     var from = total ? start + 1 : 0;
     var to = Math.min(start + pageSize, total);
     var pager =
-      '<div class="list-pager" id="user-pager">' +
+      '<div class="list-pager" id="user-pager" data-list-page="' + state.userPage + '" data-list-pages="' + pages + '">' +
         '<span id="user-page-info">' + from + "–" + to + " of " + total + " users</span>" +
-        '<button type="button" class="btn" id="btn-user-prev"' + (state.userPage <= 1 ? " disabled" : "") + ">Previous</button>" +
-        '<span class="page-num">Page ' + state.userPage + " / " + pages + "</span>" +
-        '<button type="button" class="btn" id="btn-user-next"' + (state.userPage >= pages ? " disabled" : "") + ">Next</button>" +
+        pagerControl("btn-user-prev", "Previous", usersListPageHash(state.userPage - 1), state.userPage > 1) +
+        '<span class="page-num" id="user-page-num">Page ' + state.userPage + " / " + pages + "</span>" +
+        pagerControl("btn-user-next", "Next", usersListPageHash(state.userPage + 1), state.userPage < pages) +
         '<label class="page-size">Rows <select id="user-page-size">' +
           [100, 500, 1000].map(function (n) {
             return '<option value="' + n + '"' + (pageSize === n ? " selected" : "") + ">" + n + "</option>";
@@ -447,10 +478,10 @@
           '<button type="button" class="btn" id="search">Search</button>' +
         "</div>" +
       "</div>" +
-      '<div class="table-wrap" id="user-list-panel" data-page="user-list">' +
-        '<table class="data" id="users-table">' +
+      '<div class="table-wrap" id="user-list-panel" data-page="user-list" data-list-page="' + state.userPage + '">' +
+        '<table class="data" id="users-table" data-page="' + state.userPage + '">' +
           "<thead><tr><th></th><th>Username</th><th>User ID</th><th>Status</th><th>Role</th><th>Actions</th></tr></thead>" +
-          "<tbody id=\"user-rows\">" + tbody + "</tbody>" +
+          '<tbody id="user-rows" data-page="' + state.userPage + '">' + tbody + "</tbody>" +
         "</table>" +
       "</div>" +
       pager
@@ -471,11 +502,11 @@
     var from = total ? start + 1 : 0;
     var to = Math.min(start + pageSize, total);
     var pager =
-      '<div class="list-pager" id="role-pager">' +
+      '<div class="list-pager" id="role-pager" data-list-page="' + state.rolePage + '">' +
         '<span id="role-page-info">' + from + "–" + to + " of " + total + " roles</span>" +
-        '<button type="button" class="btn" id="btn-role-prev"' + (state.rolePage <= 1 ? " disabled" : "") + ">Previous</button>" +
+        pagerControl("btn-role-prev", "Previous", rolesListPageHash(state.rolePage - 1), state.rolePage > 1) +
         '<span class="page-num">Page ' + state.rolePage + " / " + pages + "</span>" +
-        '<button type="button" class="btn" id="btn-role-next"' + (state.rolePage >= pages ? " disabled" : "") + ">Next</button>" +
+        pagerControl("btn-role-next", "Next", rolesListPageHash(state.rolePage + 1), state.rolePage < pages) +
       "</div>";
     return (
       "<h1 class=\"page-title\">Roles</h1>" +
@@ -688,6 +719,11 @@
         state.umTab = "roles";
         state.userView = "list";
         state.detailUserId = null;
+        if (parts[2] === "page" && parts[3]) {
+          state.rolePage = Math.max(1, parseInt(parts[3], 10) || 1);
+        } else {
+          state.rolePage = 1;
+        }
         return;
       }
       if (parts[1] === "groups") {
@@ -709,8 +745,15 @@
           state.selectedUserId = state.detailUserId;
           return;
         }
+        if (parts[2] === "page" && parts[3]) {
+          state.userView = "list";
+          state.detailUserId = null;
+          state.userPage = Math.max(1, parseInt(parts[3], 10) || 1);
+          return;
+        }
         state.userView = "list";
         state.detailUserId = null;
+        state.userPage = 1;
         return;
       }
       state.umTab = "users";
@@ -769,28 +812,7 @@
     if (t.id === "btn-delete-user" && state.selectedUserId) { state.modal = "delete"; render(); return; }
     if (t.id === "search") {
       state.query = (document.getElementById("user-search") || {}).value || "";
-      state.userPage = 1;
-      render();
-      return;
-    }
-    if (t.id === "btn-user-prev" && state.userPage > 1) {
-      state.userPage -= 1;
-      render();
-      return;
-    }
-    if (t.id === "btn-user-next") {
-      state.userPage += 1;
-      render();
-      return;
-    }
-    if (t.id === "btn-role-prev" && state.rolePage > 1) {
-      state.rolePage -= 1;
-      render();
-      return;
-    }
-    if (t.id === "btn-role-next") {
-      state.rolePage += 1;
-      render();
+      goUserPage(1);
       return;
     }
     if (t.classList && t.classList.contains("edit-user")) {
@@ -827,16 +849,14 @@
     }
     if (e.target.id === "user-page-size") {
       state.userPageSize = parseInt(e.target.value, 10) || 500;
-      state.userPage = 1;
-      render();
+      goUserPage(1);
     }
   });
 
   appEl.addEventListener("keydown", function (e) {
     if (e.key === "Enter" && e.target.id === "user-search") {
       state.query = e.target.value;
-      state.userPage = 1;
-      render();
+      goUserPage(1);
     }
   });
 
