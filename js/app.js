@@ -656,9 +656,8 @@
 
   function stopFurtherScrolling(panel) {
     panel.dataset.allLoaded = "true";
-    panel.scrollTo = function () {
-      throw new Error("All records have already been loaded.");
-    };
+    panel.style.maxHeight = "none";
+    panel.style.overflow = "visible";
   }
 
   function configureCompletedScrollContainers() {
@@ -883,7 +882,6 @@
   appEl.addEventListener("scroll", function (e) {
     var panel = e.target;
     if (!panel || panel.dataset.allLoaded === "true") return;
-    if (panel.scrollTop + panel.clientHeight < panel.scrollHeight - 4) return;
 
     if (panel.id === "role-list-panel") {
       var roleBody = document.getElementById("role-rows");
@@ -916,8 +914,7 @@
       }).join(""));
     }
 
-    // Mark the captured infinite-scroll selector complete. A subsequent connector scroll fails
-    // immediately, which its pagination strategy treats as normal completion instead of noGrowth.
+    // Expand the completed container so the connector observes scrollTop max 0 and stops atEnd.
     stopFurtherScrolling(panel);
     var info = document.getElementById("user-page-info");
     if (info) info.textContent = "All " + filteredUsers().length + " users loaded";
