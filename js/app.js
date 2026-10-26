@@ -388,7 +388,11 @@
               "<td>" + esc(u.userId) + "</td>" +
               "<td><span class=\"status-pill " + (u.status === "Enabled" ? "enabled" : "disabled") + "\" data-status=\"" + esc(u.status) + "\">" + esc(u.status) + "</span></td>" +
               "<td>" + esc(roleName(u.roleId)) + "</td>" +
-              '<td><a href="#/user-management/users/detail/' + encodeURIComponent(u.userId) + '" class="edit-user update-user" data-user-id="' + esc(u.userId) + '">Open</a></td>' +
+              '<td class="row-actions">' +
+                '<a href="#/user-management/users/detail/' + encodeURIComponent(u.userId) + '" class="update-user open-user" data-user-id="' + esc(u.userId) + '">Open</a>' +
+                '<span class="action-sep">|</span>' +
+                '<a href="#/user-management/users/detail/' + encodeURIComponent(u.userId) + '" class="edit-user" data-user-id="' + esc(u.userId) + '">Edit</a>' +
+              "</td>" +
             "</tr>"
           );
         }).join("")
@@ -423,7 +427,7 @@
       "</div>" +
       '<div class="table-wrap" id="user-list-panel" data-page="user-list">' +
         '<table class="data" id="users-table">' +
-          "<thead><tr><th></th><th>Username</th><th>User ID</th><th>Status</th><th>Role</th><th></th></tr></thead>" +
+          "<thead><tr><th></th><th>Username</th><th>User ID</th><th>Status</th><th>Role</th><th>Actions</th></tr></thead>" +
           "<tbody id=\"user-rows\">" + tbody + "</tbody>" +
         "</table>" +
       "</div>" +
@@ -484,11 +488,11 @@
         '<p class="hint">Dedicated account page (no user list on screen) for read / scan captures.</p>' +
         (state.formError ? '<div class="error">' + esc(state.formError) + "</div>" : "") +
         '<div class="detail-tabs" id="user-detail-tabs">' +
-          '<button type="button" class="detail-tab' + (profileTab ? " active" : "") + '" data-detail-tab="profile" id="tab-profile">Profile</button>' +
+          '<button type="button" class="detail-tab' + (profileTab ? " active" : "") + '" data-detail-tab="profile" id="tab-user-details">User Details</button>' +
           '<button type="button" class="detail-tab' + (!profileTab ? " active" : "") + '" data-detail-tab="roles" id="tab-roles">Roles</button>' +
         "</div>" +
         '<form id="user-form" class="detail-form">' +
-          '<div id="user-profile"' + (profileTab ? "" : ' hidden') + ">" +
+          '<div id="user-details"' + (profileTab ? "" : ' hidden') + ">" +
             '<div class="form-grid">' +
               '<label class="field" for="field-username"><span>Username *</span></label>' +
               '<input id="field-username" name="username" required value="' + esc(d.username) + '"' + (isNew ? "" : " readonly") + " />" +
@@ -499,16 +503,16 @@
                 '<option value="Enabled"' + (d.status === "Enabled" ? " selected" : "") + ">Enabled</option>" +
                 '<option value="Disabled"' + (d.status === "Disabled" ? " selected" : "") + ">Disabled</option>" +
               "</select>" +
+              '<label class="field" for="field-role"><span>Role *</span></label>' +
+              '<select id="field-role" name="roleId" required>' + roleOptions(d.roleId) + "</select>" +
               '<label class="field" for="field-display"><span>Display name</span></label>' +
               '<input id="field-display" name="displayName" value="' + esc(d.displayName || "") + '" />' +
             "</div>" +
           "</div>" +
           '<div id="user-roles-panel"' + (profileTab ? ' hidden' : "") + ">" +
-            '<div class="form-grid">' +
-              '<label class="field" for="field-role"><span>Role *</span></label>' +
-              '<select id="field-role" name="roleId" required>' + roleOptions(d.roleId) + "</select>" +
-              '<span></span><p class="role-desc" id="role-description">' + esc(roleDesc) + "</p>" +
-            "</div>" +
+            '<p class="hint">Roles assigned to this account (managed on the User Details tab).</p>' +
+            '<div class="access-box" id="assigned-roles">' + esc(roleName(d.roleId)) + "</div>" +
+            '<p class="role-desc" id="role-description">' + esc(roleDesc) + "</p>" +
           "</div>" +
         "</form>" +
         '<div class="detail-actions">' +
