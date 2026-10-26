@@ -1,11 +1,12 @@
 (function () {
   "use strict";
 
-  var DB_KEY = "disconnected-admin-demo-v2";
+  var DB_KEY = "disconnected-admin-demo-v3";
   var SESSION_KEY = "disconnected-admin-demo-session";
   var ADMIN_USER = "admin";
   var ADMIN_PASS = "admin123";
   var SEED_USER_COUNT = 1000;
+  var SEED_ROLE_COUNT = 100;
 
   var SEED_FIRST = ["Avery", "Blake", "Casey", "Drew", "Emery", "Finley", "Gray", "Harper", "Jordan", "Kai", "Logan", "Morgan", "Noah", "Parker", "Quinn", "Reese", "Taylor", "Alex", "Blair", "Cameron"];
   var SEED_LAST = ["Adler", "Brooks", "Chen", "Diaz", "Ellis", "Foster", "Garcia", "Hughes", "Johnson", "Khan", "Lopez", "Murphy", "Nguyen", "Patel", "Reed", "Singh", "Turner", "Walsh", "Young", "Shaw"];
@@ -33,6 +34,8 @@
     query: "",
     userPage: 1,
     userPageSize: 50,
+    rolePage: 1,
+    rolePageSize: 50,
     userView: "list",
     detailUserId: null,
     detailTab: "profile",
@@ -54,7 +57,11 @@
   function loadDb() {
     try {
       var saved = JSON.parse(localStorage.getItem(DB_KEY) || "null");
-      if (saved && saved.users && saved.roles && saved.users.length >= SEED_USER_COUNT) return saved;
+      if (saved && saved.users && saved.roles
+          && saved.users.length >= SEED_USER_COUNT
+          && saved.roles.length >= SEED_ROLE_COUNT) {
+        return saved;
+      }
     } catch (e) { /* seed */ }
     return seedDb();
   }
@@ -63,7 +70,7 @@
     localStorage.setItem(DB_KEY, JSON.stringify(db));
   }
 
-  function seedDb() {
+  function seedRoles() {
     var roles = [
       { id: "role-risk-mgr", name: "Risk Manager", description: "Manage risk files, assignments, and escalations." },
       { id: "role-frontline", name: "Risk - Front Line User", description: "Create and edit front-line risk submissions." },
@@ -71,7 +78,22 @@
       { id: "role-feedback-mgr", name: "Feedback Manager", description: "Respond to feedback and manage feedback workflows." },
       { id: "role-security", name: "Security Administrator", description: "Administer users, roles, and security settings." }
     ];
-    var roleIds = ["role-risk-mgr", "role-frontline", "role-file-mgr", "role-feedback-mgr", "role-security"];
+    var modules = ["Risk", "Feedback", "Security", "Claims", "Operations"];
+    for (var r = roles.length + 1; r <= SEED_ROLE_COUNT; r++) {
+      var pad = r < 10 ? "00" + r : r < 100 ? "0" + r : String(r);
+      var mod = modules[(r - 1) % modules.length];
+      roles.push({
+        id: "role-" + pad,
+        name: mod + " Role " + pad,
+        description: "Demo entitlement role " + pad + " for " + mod.toLowerCase() + " module access and reporting."
+      });
+    }
+    return roles;
+  }
+
+  function seedDb() {
+    var roles = seedRoles();
+    var roleIds = roles.map(function (role) { return role.id; });
     var users = [
       { userId: "U-10001", username: "imiron", status: "Enabled", roleId: "role-frontline", displayName: "Ian Miron" },
       { userId: "U-10002", username: "ajoshi2", status: "Enabled", roleId: "role-risk-mgr", displayName: "Anand Joshi" },
@@ -436,18 +458,35 @@
   }
 
   function rolesPageHtml() {
-    var tbody = db.roles.map(function (r) {
+    var total = db.roles.length;
+    var pageSize = state.rolePageSize;
+    var pages = Math.max(1, Math.ceil(total / pageSize));
+    if (state.rolePage > pages) state.rolePage = pages;
+    if (state.rolePage < 1) state.rolePage = 1;
+    var start = (state.rolePage - 1) * pageSize;
+    var pageRoles = db.roles.slice(start, start + pageSize);
+    var tbody = pageRoles.map(function (r) {
       return "<tr><td>" + esc(r.name) + "</td><td>" + esc(r.description || "") + "</td></tr>";
     }).join("");
+    var from = total ? start + 1 : 0;
+    var to = Math.min(start + pageSize, total);
+    var pager =
+      '<div class="list-pager" id="role-pager">' +
+        '<span id="role-page-info">' + from + "–" + to + " of " + total + " roles</span>" +
+        '<button type="button" class="btn" id="btn-role-prev"' + (state.rolePage <= 1 ? " disabled" : "") + ">Previous</button>" +
+        '<span class="page-num">Page ' + state.rolePage + " / " + pages + "</span>" +
+        '<button type="button" class="btn" id="btn-role-next"' + (state.rolePage >= pages ? " disabled" : "") + ">Next</button>" +
+      "</div>";
     return (
       "<h1 class=\"page-title\">Roles</h1>" +
-      '<p class="hint">Reference catalog for role assignment when creating or editing users.</p>' +
+      '<p class="hint">Reference catalog with <strong>' + total + "</strong> seeded roles (paginated in the UI).</p>" +
       '<div class="table-wrap">' +
         '<table class="data" id="roles-table">' +
           "<thead><tr><th>Role Name</th><th>Role Description</th></tr></thead>" +
-          "<tbody>" + tbody + "</tbody>" +
+          "<tbody id=\"role-rows\">" + (tbody || '<tr><td colspan="2" class="empty">No roles</td></tr>') + "</tbody>" +
         "</table>" +
-      "</div>"
+      "</div>" +
+      pager
     );
   }
 
@@ -741,6 +780,16 @@
     }
     if (t.id === "btn-user-next") {
       state.userPage += 1;
+      render();
+      return;
+    }
+    if (t.id === "btn-role-prev" && state.rolePage > 1) {
+      state.rolePage -= 1;
+      render();
+      return;
+    }
+    if (t.id === "btn-role-next") {
+      state.rolePage += 1;
       render();
       return;
     }
