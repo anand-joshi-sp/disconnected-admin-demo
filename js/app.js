@@ -6,10 +6,26 @@
   var ADMIN_USER = "admin";
   var ADMIN_PASS = "admin123";
 
+  var MAIN_SECTIONS = [
+    { id: "dashboard", label: "Dashboard", navId: "nav-dashboard" },
+    { id: "operations", label: "Operations", navId: "nav-operations" },
+    { id: "reports", label: "Reports", navId: "nav-reports" },
+    { id: "user-management", label: "User Management", navId: "nav-user-management" },
+    { id: "settings", label: "System Settings", navId: "nav-settings" },
+    { id: "audit", label: "Audit Log", navId: "nav-audit" }
+  ];
+
+  var UM_TABS = [
+    { id: "users", label: "Users", navId: "sub-nav-users" },
+    { id: "roles", label: "Roles", navId: "sub-nav-roles" },
+    { id: "groups", label: "Groups", navId: "sub-nav-groups" }
+  ];
+
   var appEl = document.getElementById("app");
 
   var state = {
-    route: "users",
+    section: "dashboard",
+    umTab: "users",
     query: "",
     selectedUserId: null,
     modal: null,
@@ -53,7 +69,23 @@
       { userId: "U-10004", username: "ppatel", status: "Enabled", roleId: "role-feedback-mgr", displayName: "Priya Patel" },
       { userId: "U-10005", username: "cadmin", status: "Enabled", roleId: "role-security", displayName: "Chris Admin" }
     ];
-    return { roles: roles, users: users };
+    return {
+      roles: roles,
+      users: users,
+      groups: [
+        { name: "Front Line Users", description: "Default front-line access bundle.", status: "Active" },
+        { name: "Risk Managers", description: "Escalation and file management group.", status: "Active" },
+        { name: "Security Administrators", description: "Full admin center access.", status: "Active" }
+      ],
+      operations: [
+        { id: "OP-2201", type: "Incident", owner: "Risk Desk", status: "Open", updated: "2026-10-24" },
+        { id: "OP-2202", type: "Feedback", owner: "Patient Relations", status: "In Review", updated: "2026-10-23" }
+      ],
+      audit: [
+        { when: "2026-10-26 09:14", actor: "admin", action: "Sign in", target: "Portal" },
+        { when: "2026-10-25 16:02", actor: "cadmin", action: "User updated", target: "ajoshi2" }
+      ]
+    };
   }
 
   function loadSession() {
@@ -65,6 +97,10 @@
   }
 
   var db = loadDb();
+  if (!db.groups) db.groups = seedDb().groups;
+  if (!db.operations) db.operations = seedDb().operations;
+  if (!db.audit) db.audit = seedDb().audit;
+
   var session = loadSession();
 
   function roleName(roleId) {
@@ -90,9 +126,15 @@
     });
   }
 
-  function setRoute(route) {
-    state.route = route;
-    location.hash = "#/" + route;
+  function navHash(section, umTab) {
+    if (section === "user-management") return "#/user-management/" + (umTab || "users");
+    return "#/" + section;
+  }
+
+  function setRoute(section, umTab) {
+    state.section = section;
+    if (section === "user-management") state.umTab = umTab || "users";
+    location.hash = navHash(section, state.umTab);
     render();
   }
 
@@ -110,36 +152,147 @@
       '<section id="login-screen">' +
         '<form class="login-card" id="login-form">' +
           "<h1>Disconnected Admin</h1>" +
-          '<p class="sub">Demo fixture for Disconnected Application connector walkthroughs.</p>' +
+          '<p class="sub">Enterprise demo fixture — multi-module navigation and user administration.</p>' +
           (state.loginError ? '<div class="error" id="login-error">' + esc(state.loginError) + "</div>" : "") +
-          '<label class="field">Valley User Name<input id="login-user" name="username" autocomplete="username" required /></label>' +
-          '<label class="field">Valley Password<input id="login-password" name="password" type="password" autocomplete="current-password" required /></label>' +
-          '<button class="btn primary" id="login-submit" type="submit">Sign On</button>' +
+          '<label class="field" for="login-user"><span>User Name</span><input id="login-user" name="username" autocomplete="username" required /></label>' +
+          '<label class="field" for="login-password"><span>Password</span><input id="login-password" name="password" type="password" autocomplete="current-password" required /></label>' +
+          '<button class="btn primary" id="login-submit" type="submit">Sign in</button>' +
           '<p class="hint" style="margin-top:14px">Demo: <strong>admin</strong> / <strong>admin123</strong></p>' +
         "</form>" +
       "</section>"
     );
   }
 
+  function mainNavHtml() {
+    return MAIN_SECTIONS.map(function (s) {
+      var active = state.section === s.id ? " active" : "";
+      var href = s.id === "user-management" ? navHash("user-management", state.umTab) : navHash(s.id);
+      return '<a href="' + href + '" id="' + s.navId + '" class="main-nav-link' + active + '">' + esc(s.label) + "</a>";
+    }).join("");
+  }
+
+  function umSubNavHtml() {
+    return UM_TABS.map(function (t) {
+      var active = state.umTab === t.id ? " active" : "";
+      return '<a href="' + navHash("user-management", t.id) + '" id="' + t.navId + '" class="sub-nav-link' + active + '">' + esc(t.label) + "</a>";
+    }).join("");
+  }
+
+  function breadcrumbHtml() {
+    var sectionLabel = (MAIN_SECTIONS.find(function (s) { return s.id === state.section; }) || {}).label || state.section;
+    var parts = ["Admin Center", sectionLabel];
+    if (state.section === "user-management") {
+      var tabLabel = (UM_TABS.find(function (t) { return t.id === state.umTab; }) || {}).label || state.umTab;
+      parts.push(tabLabel);
+    }
+    return '<nav class="breadcrumb" id="breadcrumb" aria-label="Breadcrumb">' +
+      parts.map(function (p, i) {
+        return (i ? '<span class="sep">›</span>' : "") + '<span class="crumb">' + esc(p) + "</span>";
+      }).join("") +
+      "</nav>";
+  }
+
   function shellHtml(body) {
-    var usersActive = state.route === "users" ? " active" : "";
-    var rolesActive = state.route === "roles" ? " active" : "";
+    var umBar = state.section === "user-management"
+      ? '<div class="sub-bar" id="user-management-bar"><span class="sub-bar-label">User Management</span><nav class="sub-nav" id="user-management-tabs">' + umSubNavHtml() + "</nav></div>"
+      : "";
     return (
       '<div id="app-shell">' +
         '<header class="top-bar">' +
-          '<span class="product">Disconnected Admin</span>' +
-          '<nav class="top-nav" id="main-nav">' +
-            '<a href="#/users" id="nav-users" class="' + usersActive.trim() + '">Users</a>' +
-            '<a href="#/roles" id="nav-roles" class="' + rolesActive.trim() + '">Roles</a>' +
-          "</nav>" +
+          '<span class="product" id="product-name">Disconnected Admin</span>' +
+          '<nav class="top-nav" id="main-nav">' + mainNavHtml() + "</nav>" +
           '<span class="top-spacer"></span>' +
+          '<span class="session-user" id="session-user">' + esc(session && session.username ? session.username : "") + "</span>" +
           '<button type="button" id="btn-logout">Sign out</button>' +
         "</header>" +
-        '<main id="main-content">' + body + "</main>" +
+        umBar +
+        '<main id="main-content">' + breadcrumbHtml() + body + "</main>" +
         (state.toast ? '<div class="toast" id="toast">' + esc(state.toast) + "</div>" : "") +
         modalHtml() +
       "</div>"
     );
+  }
+
+  function dashboardHtml() {
+    var enabled = db.users.filter(function (u) { return u.status === "Enabled"; }).length;
+    return (
+      '<h1 class="page-title">Operations Dashboard</h1>' +
+      '<p class="hint">Use <strong>User Management</strong> for account aggregate, read, and provisioning demos.</p>' +
+      '<div class="card-grid">' +
+        card("Active users", enabled + " / " + db.users.length, "Accounts currently enabled in the directory.", "#/user-management/users", "Open Users") +
+        card("Local roles", String(db.roles.length), "Role catalog used for assignment.", "#/user-management/roles", "Open Roles") +
+        card("Open operations", String(db.operations.length), "Sample workflow queue (read-only demo).", "#/operations", "Operations") +
+        card("Audit events", String(db.audit.length), "Recent sign-in and change history.", "#/audit", "Audit Log") +
+      "</div>"
+    );
+  }
+
+  function card(title, stat, text, link, linkLabel) {
+    return '<article class="info-card"><h3>' + esc(title) + '</h3><div class="stat">' + esc(stat) + "</div><p>" + esc(text) +
+      '</p><a class="card-link" href="' + link + '">' + esc(linkLabel) + " →</a></article>";
+  }
+
+  function operationsHtml() {
+    var rows = db.operations.map(function (o) {
+      return "<tr><td>" + esc(o.id) + "</td><td>" + esc(o.type) + "</td><td>" + esc(o.owner) + "</td><td>" + esc(o.status) + "</td><td>" + esc(o.updated) + "</td></tr>";
+    }).join("");
+    return (
+      "<h1 class=\"page-title\">Operations Queue</h1>" +
+      '<p class="hint">Illustrates a second business module — connector captures must navigate away from the dashboard to reach User Management.</p>' +
+      simpleTable(["Work ID", "Type", "Owner", "Status", "Last Updated"], rows)
+    );
+  }
+
+  function reportsHtml() {
+    return (
+      "<h1 class=\"page-title\">Reports</h1>" +
+      '<div class="panel">' +
+        '<h3>Available reports</h3>' +
+        '<ul class="link-list">' +
+          "<li><a href=\"#\" id=\"report-user-access\">User access summary</a></li>" +
+          "<li><a href=\"#\" id=\"report-role-matrix\">Role assignment matrix</a></li>" +
+          "<li><a href=\"#\" id=\"report-disabled-accounts\">Disabled accounts</a></li>" +
+        "</ul>" +
+        '<p class="hint">Report links are placeholders in this fixture.</p>' +
+      "</div>"
+    );
+  }
+
+  function settingsHtml() {
+    return (
+      "<h1 class=\"page-title\">System Settings</h1>" +
+      '<div class="form-panel">' +
+        '<label class="field"><span>Default session timeout (minutes)</span><input id="setting-session-timeout" type="number" value="30" /></label>' +
+        '<label class="field"><span>Password policy</span><select id="setting-password-policy"><option>Standard</option><option>Strict</option></select></label>' +
+        '<label class="field toggle-row"><input id="setting-mfa" type="checkbox" /> Require MFA for administrators</label>' +
+        '<button type="button" class="btn" id="btn-save-settings" disabled>Save (demo)</button>' +
+      "</div>"
+    );
+  }
+
+  function auditHtml() {
+    var rows = db.audit.map(function (a) {
+      return "<tr><td>" + esc(a.when) + "</td><td>" + esc(a.actor) + "</td><td>" + esc(a.action) + "</td><td>" + esc(a.target) + "</td></tr>";
+    }).join("");
+    return "<h1 class=\"page-title\">Audit Log</h1>" + simpleTable(["Timestamp", "Actor", "Action", "Target"], rows);
+  }
+
+  function groupsHtml() {
+    var rows = db.groups.map(function (g) {
+      return "<tr><td>" + esc(g.name) + "</td><td>" + esc(g.description) + "</td><td>" + esc(g.status) + "</td></tr>";
+    }).join("");
+    return (
+      "<h1 class=\"page-title\">User Groups</h1>" +
+      '<p class="hint">Supplementary tab under User Management — shows nested navigation depth.</p>' +
+      simpleTable(["Group Name", "Description", "Status"], rows, "groups-table")
+    );
+  }
+
+  function simpleTable(headers, rowHtml, tableId) {
+    var idAttr = tableId ? ' id="' + tableId + '"' : "";
+    return '<div class="table-wrap"><table class="data"' + idAttr + "><thead><tr>" +
+      headers.map(function (h) { return "<th>" + esc(h) + "</th>"; }).join("") +
+      "</tr></thead><tbody>" + (rowHtml || '<tr><td colspan="' + headers.length + '" class="empty">No data</td></tr>') + "</tbody></table></div>";
   }
 
   function usersPageHtml() {
@@ -147,13 +300,12 @@
     var sel = state.selectedUserId;
     var tbody = rows.length
       ? rows.map(function (u) {
-          var selected = sel === u.userId ? " selected" : "";
           return (
-            "<tr class=\"" + selected.trim() + "\" data-user-id=\"" + esc(u.userId) + "\">" +
+            "<tr class=\"" + (sel === u.userId ? "selected" : "") + "\" data-user-id=\"" + esc(u.userId) + "\">" +
               "<td><input type=\"radio\" name=\"user-pick\" class=\"user-row-pick\" value=\"" + esc(u.userId) + "\"" + (sel === u.userId ? " checked" : "") + " /></td>" +
               "<td>" + esc(u.username) + "</td>" +
               "<td>" + esc(u.userId) + "</td>" +
-              "<td><span class=\"status-pill " + (u.status === "Enabled" ? "enabled" : "disabled") + "\">" + esc(u.status) + "</span></td>" +
+              "<td><span class=\"status-pill " + (u.status === "Enabled" ? "enabled" : "disabled") + "\" data-status=\"" + esc(u.status) + "\">" + esc(u.status) + "</span></td>" +
               "<td>" + esc(roleName(u.roleId)) + "</td>" +
               "<td><a href=\"#\" class=\"edit-user\" data-user-id=\"" + esc(u.userId) + "\">Edit</a></td>" +
             "</tr>"
@@ -162,7 +314,7 @@
       : '<tr><td colspan="6" class="empty">No users match your search.</td></tr>';
 
     return (
-      "<h1 class=\"page-title\">User Administration</h1>" +
+      "<h1 class=\"page-title\">Users</h1>" +
       '<div class="toolbar" id="users-toolbar">' +
         '<button type="button" class="btn primary" id="btn-new-user">New User</button>' +
         '<button type="button" class="btn" id="btn-edit-user"' + (sel ? "" : " disabled") + ">Edit User</button>" +
@@ -181,15 +333,10 @@
 
   function rolesPageHtml() {
     var tbody = db.roles.map(function (r) {
-      return (
-        "<tr>" +
-          "<td>" + esc(r.name) + "</td>" +
-          "<td>" + esc(r.description || "") + "</td>" +
-        "</tr>"
-      );
+      return "<tr><td>" + esc(r.name) + "</td><td>" + esc(r.description || "") + "</td></tr>";
     }).join("");
     return (
-      "<h1 class=\"page-title\">Local Roles</h1>" +
+      "<h1 class=\"page-title\">Roles</h1>" +
       '<p class="hint">Reference catalog for role assignment when creating or editing users.</p>' +
       '<div class="table-wrap">' +
         '<table class="data" id="roles-table">' +
@@ -198,6 +345,22 @@
         "</table>" +
       "</div>"
     );
+  }
+
+  function userManagementBody() {
+    if (state.umTab === "roles") return rolesPageHtml();
+    if (state.umTab === "groups") return groupsHtml();
+    return usersPageHtml();
+  }
+
+  function pageBody() {
+    if (state.section === "dashboard") return dashboardHtml();
+    if (state.section === "operations") return operationsHtml();
+    if (state.section === "reports") return reportsHtml();
+    if (state.section === "settings") return settingsHtml();
+    if (state.section === "audit") return auditHtml();
+    if (state.section === "user-management") return userManagementBody();
+    return dashboardHtml();
   }
 
   function roleOptions(selectedId) {
@@ -267,15 +430,13 @@
       appEl.innerHTML = loginHtml();
       return;
     }
-    var body = state.route === "roles" ? rolesPageHtml() : usersPageHtml();
-    appEl.innerHTML = shellHtml(body);
+    appEl.innerHTML = shellHtml(pageBody());
   }
 
   function openNewUser() {
     state.loginError = "";
-    var nextNum = 10010 + db.users.length;
     state.draft = {
-      userId: "U-" + nextNum,
+      userId: "U-" + (10010 + db.users.length),
       username: "",
       status: "Enabled",
       roleId: db.roles[0] ? db.roles[0].id : "",
@@ -346,13 +507,7 @@
       return;
     }
 
-    db.users.push({
-      userId: userId,
-      username: username,
-      status: status,
-      roleId: roleId,
-      displayName: displayName
-    });
+    db.users.push({ userId: userId, username: username, status: status, roleId: roleId, displayName: displayName });
     saveDb(db);
     state.modal = null;
     state.selectedUserId = userId;
@@ -370,8 +525,19 @@
   }
 
   function parseHash() {
-    var h = (location.hash || "#/users").replace(/^#\/?/, "");
-    state.route = h === "roles" ? "roles" : "users";
+    var raw = (location.hash || "#/dashboard").replace(/^#\/?/, "");
+    var parts = raw.split("/").filter(Boolean);
+    if (!parts.length) {
+      state.section = "dashboard";
+      return;
+    }
+    if (parts[0] === "user-management") {
+      state.section = "user-management";
+      state.umTab = parts[1] === "roles" || parts[1] === "groups" ? parts[1] : "users";
+      return;
+    }
+    var known = MAIN_SECTIONS.some(function (s) { return s.id === parts[0]; });
+    state.section = known ? parts[0] : "dashboard";
   }
 
   appEl.addEventListener("submit", function (e) {
@@ -384,7 +550,7 @@
         session = { username: user, at: Date.now() };
         sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
         state.loginError = "";
-        setRoute("users");
+        setRoute("dashboard", "users");
       } else {
         state.loginError = "Invalid credentials. Use admin / admin123.";
         render();
@@ -404,22 +570,18 @@
       return;
     }
 
-    if (t.id === "btn-new-user") {
-      openNewUser();
+    if (t.classList && t.classList.contains("main-nav-link")) {
       return;
     }
-    if (t.id === "btn-edit-user" && state.selectedUserId) {
-      openEditUser(state.selectedUserId);
+    if (t.classList && t.classList.contains("sub-nav-link")) {
       return;
     }
-    if (t.id === "btn-delete-user" && state.selectedUserId) {
-      state.modal = "delete";
-      render();
-      return;
-    }
+
+    if (t.id === "btn-new-user") { openNewUser(); return; }
+    if (t.id === "btn-edit-user" && state.selectedUserId) { openEditUser(state.selectedUserId); return; }
+    if (t.id === "btn-delete-user" && state.selectedUserId) { state.modal = "delete"; render(); return; }
     if (t.id === "search") {
-      var inp = document.getElementById("user-search");
-      state.query = inp ? inp.value : "";
+      state.query = (document.getElementById("user-search") || {}).value || "";
       render();
       return;
     }
@@ -433,8 +595,13 @@
       if (form) saveUserForm(form);
       return;
     }
-    if (t.id === "btn-cancel-user" || t.id === "btn-close-user" || t.id === "user-modal-backdrop") {
-      if (t.id === "user-modal-backdrop" && t.target !== t) return;
+    if (t.id === "btn-cancel-user" || t.id === "btn-close-user") {
+      state.modal = null;
+      state.loginError = "";
+      render();
+      return;
+    }
+    if (t.id === "user-modal-backdrop" && t.target === t) {
       state.modal = null;
       state.loginError = "";
       render();
@@ -445,10 +612,7 @@
       render();
       return;
     }
-    if (t.id === "btn-confirm-delete") {
-      deleteSelectedUser();
-      return;
-    }
+    if (t.id === "btn-confirm-delete") { deleteSelectedUser(); return; }
     if (t.classList && t.classList.contains("user-row-pick")) {
       state.selectedUserId = t.value;
       render();

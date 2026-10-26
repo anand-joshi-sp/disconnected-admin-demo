@@ -27,12 +27,22 @@ npx --yes serve .
 
 Seed users include `ajoshi2`, `imiron`, and `jdoe` (Disabled).
 
+## Navigation (complex app flow)
+
+After sign-in, the app opens **Dashboard**. For user/role demos, navigate:
+
+1. Top bar → **User Management** (`#nav-user-management`)
+2. Sub-tabs → **Users** (`#sub-nav-users`) or **Roles** (`#sub-nav-roles`)
+
+Other top modules (Operations, Reports, System Settings, Audit Log) are sample areas for multi-step captures.
+
 ## Connector hints
 
 Stable selectors for capture:
 
-- Login: `#login-user`, `#login-password`, `#login-submit`
-- Nav: `#nav-users`, `#nav-roles`
+- Login: `#login-user`, `#login-password`, `#login-submit` (labels: **User Name**, **Password**)
+- Main nav: `#nav-dashboard`, `#nav-user-management`, `#nav-operations`, …
+- User Management sub-nav: `#user-management-tabs`, `#sub-nav-users`, `#sub-nav-roles`, `#sub-nav-groups`
 - Users: `#users-table`, `#user-search`, `#search`, `#btn-new-user`, `#btn-edit-user`, `#btn-delete-user`, `a.edit-user`
 - User form: `#user-form`, `#field-username`, `#field-user-id`, `#field-status`, `#field-role`, `#btn-save-user`
 - Roles: `#roles-table`
