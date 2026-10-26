@@ -33,9 +33,9 @@
     umTab: "users",
     query: "",
     userPage: 1,
-    userPageSize: 50,
+    userPageSize: 500,
     rolePage: 1,
-    rolePageSize: 50,
+    rolePageSize: 500,
     userView: "list",
     detailUserId: null,
     detailTab: "profile",
@@ -429,7 +429,7 @@
         '<span class="page-num">Page ' + state.userPage + " / " + pages + "</span>" +
         '<button type="button" class="btn" id="btn-user-next"' + (state.userPage >= pages ? " disabled" : "") + ">Next</button>" +
         '<label class="page-size">Rows <select id="user-page-size">' +
-          [25, 50, 100].map(function (n) {
+          [100, 500, 1000].map(function (n) {
             return '<option value="' + n + '"' + (pageSize === n ? " selected" : "") + ">" + n + "</option>";
           }).join("") +
         "</select></label>" +
@@ -826,7 +826,7 @@
       return;
     }
     if (e.target.id === "user-page-size") {
-      state.userPageSize = parseInt(e.target.value, 10) || 50;
+      state.userPageSize = parseInt(e.target.value, 10) || 500;
       state.userPage = 1;
       render();
     }
