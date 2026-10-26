@@ -1,10 +1,14 @@
 (function () {
   "use strict";
 
-  var DB_KEY = "disconnected-admin-demo-v1";
+  var DB_KEY = "disconnected-admin-demo-v2";
   var SESSION_KEY = "disconnected-admin-demo-session";
   var ADMIN_USER = "admin";
   var ADMIN_PASS = "admin123";
+  var SEED_USER_COUNT = 1000;
+
+  var SEED_FIRST = ["Avery", "Blake", "Casey", "Drew", "Emery", "Finley", "Gray", "Harper", "Jordan", "Kai", "Logan", "Morgan", "Noah", "Parker", "Quinn", "Reese", "Taylor", "Alex", "Blair", "Cameron"];
+  var SEED_LAST = ["Adler", "Brooks", "Chen", "Diaz", "Ellis", "Foster", "Garcia", "Hughes", "Johnson", "Khan", "Lopez", "Murphy", "Nguyen", "Patel", "Reed", "Singh", "Turner", "Walsh", "Young", "Shaw"];
 
   var MAIN_SECTIONS = [
     { id: "dashboard", label: "Dashboard", navId: "nav-dashboard" },
@@ -27,9 +31,14 @@
     section: "dashboard",
     umTab: "users",
     query: "",
+    userPage: 1,
+    userPageSize: 50,
+    userView: "list",
+    detailUserId: null,
+    detailTab: "profile",
     selectedUserId: null,
     modal: null,
-    draft: null,
+    formError: "",
     toast: "",
     loginError: ""
   };
@@ -45,7 +54,7 @@
   function loadDb() {
     try {
       var saved = JSON.parse(localStorage.getItem(DB_KEY) || "null");
-      if (saved && saved.users && saved.roles) return saved;
+      if (saved && saved.users && saved.roles && saved.users.length >= SEED_USER_COUNT) return saved;
     } catch (e) { /* seed */ }
     return seedDb();
   }
@@ -62,6 +71,7 @@
       { id: "role-feedback-mgr", name: "Feedback Manager", description: "Respond to feedback and manage feedback workflows." },
       { id: "role-security", name: "Security Administrator", description: "Administer users, roles, and security settings." }
     ];
+    var roleIds = ["role-risk-mgr", "role-frontline", "role-file-mgr", "role-feedback-mgr", "role-security"];
     var users = [
       { userId: "U-10001", username: "imiron", status: "Enabled", roleId: "role-frontline", displayName: "Ian Miron" },
       { userId: "U-10002", username: "ajoshi2", status: "Enabled", roleId: "role-risk-mgr", displayName: "Anand Joshi" },
@@ -69,6 +79,19 @@
       { userId: "U-10004", username: "ppatel", status: "Enabled", roleId: "role-feedback-mgr", displayName: "Priya Patel" },
       { userId: "U-10005", username: "cadmin", status: "Enabled", roleId: "role-security", displayName: "Chris Admin" }
     ];
+    for (var i = users.length + 1; i <= SEED_USER_COUNT; i++) {
+      var n = i;
+      var first = SEED_FIRST[(n - 1) % SEED_FIRST.length];
+      var last = SEED_LAST[(n - 1) % SEED_LAST.length];
+      var pad = n < 10 ? "000" + n : n < 100 ? "00" + n : n < 1000 ? "0" + n : String(n);
+      users.push({
+        userId: "U-" + (10000 + n),
+        username: "user" + pad,
+        status: n % 17 === 0 ? "Disabled" : "Enabled",
+        roleId: roleIds[n % roleIds.length],
+        displayName: first + " " + last
+      });
+    }
     return {
       roles: roles,
       users: users,
@@ -127,14 +150,60 @@
   }
 
   function navHash(section, umTab) {
-    if (section === "user-management") return "#/user-management/" + (umTab || "users");
+    if (section === "user-management") {
+      if (umTab === "users" && state.userView === "new") return "#/user-management/users/new";
+      if (umTab === "users" && state.userView === "detail" && state.detailUserId) {
+        return "#/user-management/users/detail/" + encodeURIComponent(state.detailUserId);
+      }
+      return "#/user-management/" + (umTab || "users");
+    }
     return "#/" + section;
+  }
+
+  function usersListHash() {
+    return "#/user-management/users";
   }
 
   function setRoute(section, umTab) {
     state.section = section;
-    if (section === "user-management") state.umTab = umTab || "users";
+    if (section === "user-management") {
+      state.umTab = umTab || "users";
+      if (state.umTab !== "users") {
+        state.userView = "list";
+        state.detailUserId = null;
+      }
+    } else {
+      state.userView = "list";
+      state.detailUserId = null;
+    }
     location.hash = navHash(section, state.umTab);
+    render();
+  }
+
+  function goUsersList() {
+    state.userView = "list";
+    state.detailUserId = null;
+    state.formError = "";
+    location.hash = usersListHash();
+    render();
+  }
+
+  function goUserNew() {
+    state.userView = "new";
+    state.detailUserId = null;
+    state.detailTab = "profile";
+    state.formError = "";
+    location.hash = "#/user-management/users/new";
+    render();
+  }
+
+  function goUserDetail(userId) {
+    state.userView = "detail";
+    state.detailUserId = userId;
+    state.detailTab = "profile";
+    state.formError = "";
+    state.selectedUserId = userId;
+    location.hash = "#/user-management/users/detail/" + encodeURIComponent(userId);
     render();
   }
 
@@ -157,7 +226,6 @@
           '<label class="field" for="login-user"><span>User Name</span><input id="login-user" name="username" autocomplete="username" required /></label>' +
           '<label class="field" for="login-password"><span>Password</span><input id="login-password" name="password" type="password" autocomplete="current-password" required /></label>' +
           '<button class="btn primary" id="login-submit" type="submit">Sign in</button>' +
-          '<p class="hint" style="margin-top:14px">Demo: <strong>admin</strong> / <strong>admin123</strong></p>' +
         "</form>" +
       "</section>"
     );
@@ -174,7 +242,8 @@
   function umSubNavHtml() {
     return UM_TABS.map(function (t) {
       var active = state.umTab === t.id ? " active" : "";
-      return '<a href="' + navHash("user-management", t.id) + '" id="' + t.navId + '" class="sub-nav-link' + active + '">' + esc(t.label) + "</a>";
+      var href = t.id === "users" ? usersListHash() : navHash("user-management", t.id);
+      return '<a href="' + href + '" id="' + t.navId + '" class="sub-nav-link' + active + '">' + esc(t.label) + "</a>";
     }).join("");
   }
 
@@ -184,6 +253,11 @@
     if (state.section === "user-management") {
       var tabLabel = (UM_TABS.find(function (t) { return t.id === state.umTab; }) || {}).label || state.umTab;
       parts.push(tabLabel);
+      if (state.umTab === "users" && state.userView === "new") parts.push("Create User");
+      if (state.umTab === "users" && state.userView === "detail" && state.detailUserId) {
+        var du = findUser(state.detailUserId);
+        parts.push(du ? du.username : state.detailUserId);
+      }
     }
     return '<nav class="breadcrumb" id="breadcrumb" aria-label="Breadcrumb">' +
       parts.map(function (p, i) {
@@ -206,7 +280,7 @@
           '<button type="button" id="btn-logout">Sign out</button>' +
         "</header>" +
         umBar +
-        '<main id="main-content">' + breadcrumbHtml() + body + "</main>" +
+        '<main id="main-content">' + breadcrumbHtml() + '<div id="content">' + body + "</div></main>" +
         (state.toast ? '<div class="toast" id="toast">' + esc(state.toast) + "</div>" : "") +
         modalHtml() +
       "</div>"
@@ -296,7 +370,14 @@
   }
 
   function usersPageHtml() {
-    var rows = filteredUsers();
+    var all = filteredUsers();
+    var total = all.length;
+    var pageSize = state.userPageSize;
+    var pages = Math.max(1, Math.ceil(total / pageSize));
+    if (state.userPage > pages) state.userPage = pages;
+    if (state.userPage < 1) state.userPage = 1;
+    var start = (state.userPage - 1) * pageSize;
+    var rows = all.slice(start, start + pageSize);
     var sel = state.selectedUserId;
     var tbody = rows.length
       ? rows.map(function (u) {
@@ -307,27 +388,46 @@
               "<td>" + esc(u.userId) + "</td>" +
               "<td><span class=\"status-pill " + (u.status === "Enabled" ? "enabled" : "disabled") + "\" data-status=\"" + esc(u.status) + "\">" + esc(u.status) + "</span></td>" +
               "<td>" + esc(roleName(u.roleId)) + "</td>" +
-              "<td><a href=\"#\" class=\"edit-user\" data-user-id=\"" + esc(u.userId) + "\">Edit</a></td>" +
+              '<td><a href="#/user-management/users/detail/' + encodeURIComponent(u.userId) + '" class="edit-user update-user" data-user-id="' + esc(u.userId) + '">Open</a></td>' +
             "</tr>"
           );
         }).join("")
       : '<tr><td colspan="6" class="empty">No users match your search.</td></tr>';
 
+    var from = total ? start + 1 : 0;
+    var to = Math.min(start + pageSize, total);
+    var pager =
+      '<div class="list-pager" id="user-pager">' +
+        '<span id="user-page-info">' + from + "–" + to + " of " + total + " users</span>" +
+        '<button type="button" class="btn" id="btn-user-prev"' + (state.userPage <= 1 ? " disabled" : "") + ">Previous</button>" +
+        '<span class="page-num">Page ' + state.userPage + " / " + pages + "</span>" +
+        '<button type="button" class="btn" id="btn-user-next"' + (state.userPage >= pages ? " disabled" : "") + ">Next</button>" +
+        '<label class="page-size">Rows <select id="user-page-size">' +
+          [25, 50, 100].map(function (n) {
+            return '<option value="' + n + '"' + (pageSize === n ? " selected" : "") + ">" + n + "</option>";
+          }).join("") +
+        "</select></label>" +
+      "</div>";
+
     return (
       "<h1 class=\"page-title\">Users</h1>" +
+      '<p class="hint">Fixture ships with <strong>' + db.users.length + "</strong> seeded accounts (pagination for UI; full set in storage).</p>" +
       '<div class="toolbar" id="users-toolbar">' +
         '<button type="button" class="btn primary" id="btn-new-user">New User</button>' +
         '<button type="button" class="btn" id="btn-edit-user"' + (sel ? "" : " disabled") + ">Edit User</button>" +
         '<button type="button" class="btn danger" id="btn-delete-user"' + (sel ? "" : " disabled") + ">Delete User</button>" +
-        '<input type="search" id="user-search" name="username" placeholder="Search username, user id, status, role" value="' + esc(state.query) + '" />' +
-        '<button type="button" class="btn" id="search">Search</button>' +
+        '<div class="find-form" id="find-form">' +
+          '<input type="search" id="user-search" name="username" placeholder="Search username, user id, status, role" value="' + esc(state.query) + '" />' +
+          '<button type="button" class="btn" id="search">Search</button>' +
+        "</div>" +
       "</div>" +
-      '<div class="table-wrap">' +
+      '<div class="table-wrap" id="user-list-panel" data-page="user-list">' +
         '<table class="data" id="users-table">' +
           "<thead><tr><th></th><th>Username</th><th>User ID</th><th>Status</th><th>Role</th><th></th></tr></thead>" +
           "<tbody id=\"user-rows\">" + tbody + "</tbody>" +
         "</table>" +
-      "</div>"
+      "</div>" +
+      pager
     );
   }
 
@@ -347,9 +447,83 @@
     );
   }
 
+  function detailDraft(isNew) {
+    if (isNew) {
+      return {
+        userId: "U-" + (10010 + db.users.length),
+        username: "",
+        status: "Enabled",
+        roleId: db.roles[0] ? db.roles[0].id : "",
+        displayName: ""
+      };
+    }
+    var u = findUser(state.detailUserId);
+    if (!u) return null;
+    return {
+      _editUserId: u.userId,
+      userId: u.userId,
+      username: u.username,
+      status: u.status,
+      roleId: u.roleId,
+      displayName: u.displayName || ""
+    };
+  }
+
+  function userDetailPageHtml(isNew) {
+    var d = detailDraft(isNew);
+    if (!d) {
+      return '<p class="error">User not found.</p><button type="button" class="btn" id="btn-back-users">Back to list</button>';
+    }
+    var title = isNew ? "Create User" : "User Details — " + d.username;
+    var roleDesc = (db.roles.find(function (r) { return r.id === d.roleId; }) || {}).description || "";
+    var profileTab = state.detailTab === "profile";
+    return (
+      '<section id="account-detail" class="account-detail-page" data-page="account-detail" aria-label="Account detail">' +
+        '<input type="hidden" id="page-kind" name="pageKind" value="account-detail" />' +
+        "<h1 class=\"page-title\">" + esc(title) + "</h1>" +
+        '<p class="hint">Dedicated account page (no user list on screen) for read / scan captures.</p>' +
+        (state.formError ? '<div class="error">' + esc(state.formError) + "</div>" : "") +
+        '<div class="detail-tabs" id="user-detail-tabs">' +
+          '<button type="button" class="detail-tab' + (profileTab ? " active" : "") + '" data-detail-tab="profile" id="tab-profile">Profile</button>' +
+          '<button type="button" class="detail-tab' + (!profileTab ? " active" : "") + '" data-detail-tab="roles" id="tab-roles">Roles</button>' +
+        "</div>" +
+        '<form id="user-form" class="detail-form">' +
+          '<div id="user-profile"' + (profileTab ? "" : ' hidden') + ">" +
+            '<div class="form-grid">' +
+              '<label class="field" for="field-username"><span>Username *</span></label>' +
+              '<input id="field-username" name="username" required value="' + esc(d.username) + '"' + (isNew ? "" : " readonly") + " />" +
+              '<label class="field" for="field-user-id"><span>User ID *</span></label>' +
+              '<input id="field-user-id" name="userId" required value="' + esc(d.userId) + '"' + (isNew ? "" : " readonly") + " />" +
+              '<label class="field" for="field-status"><span>Status</span></label>' +
+              '<select id="field-status" name="status">' +
+                '<option value="Enabled"' + (d.status === "Enabled" ? " selected" : "") + ">Enabled</option>" +
+                '<option value="Disabled"' + (d.status === "Disabled" ? " selected" : "") + ">Disabled</option>" +
+              "</select>" +
+              '<label class="field" for="field-display"><span>Display name</span></label>' +
+              '<input id="field-display" name="displayName" value="' + esc(d.displayName || "") + '" />' +
+            "</div>" +
+          "</div>" +
+          '<div id="user-roles-panel"' + (profileTab ? ' hidden' : "") + ">" +
+            '<div class="form-grid">' +
+              '<label class="field" for="field-role"><span>Role *</span></label>' +
+              '<select id="field-role" name="roleId" required>' + roleOptions(d.roleId) + "</select>" +
+              '<span></span><p class="role-desc" id="role-description">' + esc(roleDesc) + "</p>" +
+            "</div>" +
+          "</div>" +
+        "</form>" +
+        '<div class="detail-actions">' +
+          '<button type="button" class="btn" id="btn-back-users">Back to list</button>' +
+          '<button type="button" class="btn primary" id="btn-save-user">Save</button>' +
+        "</div>" +
+      "</section>"
+    );
+  }
+
   function userManagementBody() {
     if (state.umTab === "roles") return rolesPageHtml();
     if (state.umTab === "groups") return groupsHtml();
+    if (state.umTab === "users" && state.userView === "new") return userDetailPageHtml(true);
+    if (state.umTab === "users" && state.userView === "detail") return userDetailPageHtml(false);
     return usersPageHtml();
   }
 
@@ -369,41 +543,6 @@
     }).join("");
   }
 
-  function userFormModalHtml() {
-    var d = state.draft;
-    var isEdit = !!d._editUserId;
-    var title = isEdit ? "Edit User" : "Create User";
-    return (
-      '<div class="backdrop" id="user-modal-backdrop">' +
-        '<section class="dialog" id="user-modal" role="dialog" aria-modal="true">' +
-          "<header><h2>" + title + '</h2><button type="button" class="x" id="btn-cancel-user" aria-label="Close">×</button></header>' +
-          '<div class="body">' +
-            (state.loginError ? '<div class="error">' + esc(state.loginError) + "</div>" : "") +
-            '<form id="user-form">' +
-              '<div class="form-grid">' +
-                '<label class="field" for="field-username"><span>Username *</span></label>' +
-                '<input id="field-username" name="username" required value="' + esc(d.username) + '"' + (isEdit ? " readonly" : "") + " />" +
-                '<label class="field" for="field-user-id"><span>User ID *</span></label>' +
-                '<input id="field-user-id" name="userId" required value="' + esc(d.userId) + '"' + (isEdit ? " readonly" : "") + " />" +
-                '<label class="field" for="field-status"><span>Status</span></label>' +
-                '<select id="field-status" name="status">' +
-                  '<option value="Enabled"' + (d.status === "Enabled" ? " selected" : "") + ">Enabled</option>" +
-                  '<option value="Disabled"' + (d.status === "Disabled" ? " selected" : "") + ">Disabled</option>" +
-                "</select>" +
-                '<label class="field" for="field-role"><span>Role *</span></label>' +
-                '<select id="field-role" name="roleId" required>' + roleOptions(d.roleId) + "</select>" +
-                '<label class="field" for="field-display"><span>Display name</span></label>' +
-                '<input id="field-display" name="displayName" value="' + esc(d.displayName || "") + '" />' +
-              "</div>" +
-            "</form>" +
-          "</div>" +
-          '<footer><button type="button" class="btn" id="btn-close-user">Cancel</button>' +
-          '<button type="button" class="btn primary" id="btn-save-user">Save</button></footer>' +
-        "</section>" +
-      "</div>"
-    );
-  }
-
   function deleteConfirmHtml() {
     var u = findUser(state.selectedUserId);
     if (!u) return "";
@@ -420,7 +559,6 @@
   }
 
   function modalHtml() {
-    if (state.modal === "user") return userFormModalHtml();
     if (state.modal === "delete") return deleteConfirmHtml();
     return "";
   }
@@ -433,38 +571,8 @@
     appEl.innerHTML = shellHtml(pageBody());
   }
 
-  function openNewUser() {
-    state.loginError = "";
-    state.draft = {
-      userId: "U-" + (10010 + db.users.length),
-      username: "",
-      status: "Enabled",
-      roleId: db.roles[0] ? db.roles[0].id : "",
-      displayName: ""
-    };
-    state.modal = "user";
-    render();
-  }
-
-  function openEditUser(userId) {
-    var u = findUser(userId);
-    if (!u) return;
-    state.selectedUserId = userId;
-    state.loginError = "";
-    state.draft = {
-      _editUserId: userId,
-      userId: u.userId,
-      username: u.username,
-      status: u.status,
-      roleId: u.roleId,
-      displayName: u.displayName || ""
-    };
-    state.modal = "user";
-    render();
-  }
-
   function saveUserForm(form) {
-    state.loginError = "";
+    state.formError = "";
     var data = new FormData(form);
     var username = String(data.get("username") || "").trim();
     var userId = String(data.get("userId") || "").trim();
@@ -473,45 +581,45 @@
     var displayName = String(data.get("displayName") || "").trim();
 
     if (!username || !userId || !roleId) {
-      state.loginError = "Username, User ID, and Role are required.";
+      state.formError = "Username, User ID, and Role are required.";
       render();
       return;
     }
     if (status !== "Enabled" && status !== "Disabled") status = "Enabled";
 
-    var editId = state.draft && state.draft._editUserId;
+    var isNew = state.userView === "new";
+    var editId = isNew ? null : state.detailUserId;
     if (editId) {
       var existing = findUser(editId);
       if (!existing) {
-        state.modal = null;
-        render();
+        goUsersList();
         return;
       }
       existing.status = status;
       existing.roleId = roleId;
       existing.displayName = displayName;
       saveDb(db);
-      state.modal = null;
       showToast("User updated.");
+      goUsersList();
       return;
     }
 
     if (findUserByUsername(username)) {
-      state.loginError = "Username already exists.";
+      state.formError = "Username already exists.";
       render();
       return;
     }
     if (findUser(userId)) {
-      state.loginError = "User ID already exists.";
+      state.formError = "User ID already exists.";
       render();
       return;
     }
 
     db.users.push({ userId: userId, username: username, status: status, roleId: roleId, displayName: displayName });
     saveDb(db);
-    state.modal = null;
     state.selectedUserId = userId;
     showToast("User created.");
+    goUsersList();
   }
 
   function deleteSelectedUser() {
@@ -533,7 +641,38 @@
     }
     if (parts[0] === "user-management") {
       state.section = "user-management";
-      state.umTab = parts[1] === "roles" || parts[1] === "groups" ? parts[1] : "users";
+      if (parts[1] === "roles") {
+        state.umTab = "roles";
+        state.userView = "list";
+        state.detailUserId = null;
+        return;
+      }
+      if (parts[1] === "groups") {
+        state.umTab = "groups";
+        state.userView = "list";
+        state.detailUserId = null;
+        return;
+      }
+      if (parts[1] === "users") {
+        state.umTab = "users";
+        if (parts[2] === "new") {
+          state.userView = "new";
+          state.detailUserId = null;
+          return;
+        }
+        if (parts[2] === "detail" && parts[3]) {
+          state.userView = "detail";
+          state.detailUserId = decodeURIComponent(parts[3]);
+          state.selectedUserId = state.detailUserId;
+          return;
+        }
+        state.userView = "list";
+        state.detailUserId = null;
+        return;
+      }
+      state.umTab = "users";
+      state.userView = "list";
+      state.detailUserId = null;
       return;
     }
     var known = MAIN_SECTIONS.some(function (s) { return s.id === parts[0]; });
@@ -546,15 +685,19 @@
       var fd = new FormData(e.target);
       var user = String(fd.get("username") || "").trim();
       var pass = String(fd.get("password") || "");
-      if (user === ADMIN_USER && pass === ADMIN_PASS) {
-        session = { username: user, at: Date.now() };
+      if (user.toLowerCase() === ADMIN_USER && pass === ADMIN_PASS) {
+        session = { username: ADMIN_USER, at: Date.now() };
         sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
         state.loginError = "";
         setRoute("dashboard", "users");
       } else {
-        state.loginError = "Invalid credentials. Use admin / admin123.";
+        state.loginError = "Invalid user name or password.";
         render();
       }
+    }
+    if (e.target.id === "user-form") {
+      e.preventDefault();
+      saveUserForm(e.target);
     }
   });
 
@@ -577,17 +720,27 @@
       return;
     }
 
-    if (t.id === "btn-new-user") { openNewUser(); return; }
-    if (t.id === "btn-edit-user" && state.selectedUserId) { openEditUser(state.selectedUserId); return; }
+    if (t.id === "btn-new-user") { goUserNew(); return; }
+    if (t.id === "btn-edit-user" && state.selectedUserId) { goUserDetail(state.selectedUserId); return; }
+    if (t.id === "btn-back-users") { goUsersList(); return; }
     if (t.id === "btn-delete-user" && state.selectedUserId) { state.modal = "delete"; render(); return; }
     if (t.id === "search") {
       state.query = (document.getElementById("user-search") || {}).value || "";
+      state.userPage = 1;
+      render();
+      return;
+    }
+    if (t.id === "btn-user-prev" && state.userPage > 1) {
+      state.userPage -= 1;
+      render();
+      return;
+    }
+    if (t.id === "btn-user-next") {
+      state.userPage += 1;
       render();
       return;
     }
     if (t.classList && t.classList.contains("edit-user")) {
-      e.preventDefault();
-      openEditUser(t.getAttribute("data-user-id"));
       return;
     }
     if (t.id === "btn-save-user") {
@@ -595,15 +748,8 @@
       if (form) saveUserForm(form);
       return;
     }
-    if (t.id === "btn-cancel-user" || t.id === "btn-close-user") {
-      state.modal = null;
-      state.loginError = "";
-      render();
-      return;
-    }
-    if (t.id === "user-modal-backdrop" && t.target === t) {
-      state.modal = null;
-      state.loginError = "";
+    if (t.dataset && t.dataset.detailTab) {
+      state.detailTab = t.dataset.detailTab;
       render();
       return;
     }
@@ -624,12 +770,19 @@
     if (e.target.classList && e.target.classList.contains("user-row-pick")) {
       state.selectedUserId = e.target.value;
       render();
+      return;
+    }
+    if (e.target.id === "user-page-size") {
+      state.userPageSize = parseInt(e.target.value, 10) || 50;
+      state.userPage = 1;
+      render();
     }
   });
 
   appEl.addEventListener("keydown", function (e) {
     if (e.key === "Enter" && e.target.id === "user-search") {
       state.query = e.target.value;
+      state.userPage = 1;
       render();
     }
   });

@@ -12,8 +12,7 @@ npx --yes serve .
 
 ## Sign in
 
-- **Username:** `admin`
-- **Password:** `admin123`
+Sign-in uses **User Name** and **Password** fields (credentials are configured on the source, not shown on the login page).
 
 ## Features
 
@@ -40,7 +39,9 @@ Other top modules (Operations, Reports, System Settings, Audit Log) are sample a
 
 Stable selectors for capture:
 
-- Login: `#login-user`, `#login-password`, `#login-submit` (labels: **User Name**, **Password**)
+- Login: `#login-user`, `#login-password`, `#login-submit`
+- Account detail (read / Scan Account): `#/user-management/users/detail/<userId>` — `#account-detail`, `#user-form`, no `#users-table` on screen
+- List: `#users-table`, `#find-form`, `#search`, `a.update-user` (Open)
 - Main nav: `#nav-dashboard`, `#nav-user-management`, `#nav-operations`, …
 - User Management sub-nav: `#user-management-tabs`, `#sub-nav-users`, `#sub-nav-roles`, `#sub-nav-groups`
 - Users: `#users-table`, `#user-search`, `#search`, `#btn-new-user`, `#btn-edit-user`, `#btn-delete-user`, `a.edit-user`
