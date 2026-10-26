@@ -658,6 +658,20 @@
     panel.dataset.allLoaded = "true";
     panel.style.maxHeight = "none";
     panel.style.overflow = "visible";
+
+    var marker = document.createElement("div");
+    marker.setAttribute("aria-hidden", "true");
+    marker.style.cssText = "position:absolute;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none";
+    if (panel.id === "user-list-panel") {
+      panel.id = "user-list-panel-complete";
+      marker.id = "user-list-panel";
+    } else if (panel.id === "role-list-panel") {
+      panel.id = "role-list-panel-complete";
+      panel.classList.remove("table-wrap");
+      panel.classList.add("table-wrap-complete");
+      marker.className = "table-wrap";
+    }
+    panel.parentNode.insertBefore(marker, panel.nextSibling);
   }
 
   function configureCompletedScrollContainers() {
