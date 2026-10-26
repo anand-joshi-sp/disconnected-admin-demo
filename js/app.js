@@ -422,6 +422,23 @@
       "</tr></thead><tbody>" + (rowHtml || '<tr><td colspan="' + headers.length + '" class="empty">No data</td></tr>') + "</tbody></table></div>";
   }
 
+  function userRowHtml(u, selectedUserId) {
+    return (
+      "<tr class=\"" + (selectedUserId === u.userId ? "selected" : "") + "\" data-user-id=\"" + esc(u.userId) + "\">" +
+        "<td><input type=\"radio\" name=\"user-pick\" class=\"user-row-pick\" value=\"" + esc(u.userId) + "\"" + (selectedUserId === u.userId ? " checked" : "") + " /></td>" +
+        '<td data-identity="' + esc(u.username) + '">' + esc(u.username) + "</td>" +
+        "<td>" + esc(u.userId) + "</td>" +
+        "<td><span class=\"status-pill " + (u.status === "Enabled" ? "enabled" : "disabled") + "\" data-status=\"" + esc(u.status) + "\">" + esc(u.status) + "</span></td>" +
+        "<td>" + esc(roleName(u.roleId)) + "</td>" +
+        '<td class="row-actions">' +
+          '<a href="#/user-management/users/detail/' + encodeURIComponent(u.userId) + '" class="update-user open-user" data-user-id="' + esc(u.userId) + '">Open</a>' +
+          '<span class="action-sep">|</span>' +
+          '<a href="#/user-management/users/detail/' + encodeURIComponent(u.userId) + '" class="edit-user" data-user-id="' + esc(u.userId) + '">Edit</a>' +
+        "</td>" +
+      "</tr>"
+    );
+  }
+
   function usersPageHtml() {
     var all = filteredUsers();
     var total = all.length;
@@ -434,20 +451,7 @@
     var sel = state.selectedUserId;
     var tbody = rows.length
       ? rows.map(function (u) {
-          return (
-            "<tr class=\"" + (sel === u.userId ? "selected" : "") + "\" data-user-id=\"" + esc(u.userId) + "\">" +
-              "<td><input type=\"radio\" name=\"user-pick\" class=\"user-row-pick\" value=\"" + esc(u.userId) + "\"" + (sel === u.userId ? " checked" : "") + " /></td>" +
-              '<td data-identity="' + esc(u.username) + '">' + esc(u.username) + "</td>" +
-              "<td>" + esc(u.userId) + "</td>" +
-              "<td><span class=\"status-pill " + (u.status === "Enabled" ? "enabled" : "disabled") + "\" data-status=\"" + esc(u.status) + "\">" + esc(u.status) + "</span></td>" +
-              "<td>" + esc(roleName(u.roleId)) + "</td>" +
-              '<td class="row-actions">' +
-                '<a href="#/user-management/users/detail/' + encodeURIComponent(u.userId) + '" class="update-user open-user" data-user-id="' + esc(u.userId) + '">Open</a>' +
-                '<span class="action-sep">|</span>' +
-                '<a href="#/user-management/users/detail/' + encodeURIComponent(u.userId) + '" class="edit-user" data-user-id="' + esc(u.userId) + '">Edit</a>' +
-              "</td>" +
-            "</tr>"
-          );
+          return userRowHtml(u, sel);
         }).join("")
       : '<tr><td colspan="6" class="empty">No users match your search.</td></tr>';
 
@@ -497,7 +501,7 @@
     var start = (state.rolePage - 1) * pageSize;
     var pageRoles = db.roles.slice(start, start + pageSize);
     var tbody = pageRoles.map(function (r) {
-      return "<tr><td>" + esc(r.name) + "</td><td>" + esc(r.description || "") + "</td></tr>";
+      return roleRowHtml(r);
     }).join("");
     var from = total ? start + 1 : 0;
     var to = Math.min(start + pageSize, total);
@@ -511,7 +515,7 @@
     return (
       "<h1 class=\"page-title\">Roles</h1>" +
       '<p class="hint">Reference catalog with <strong>' + total + "</strong> seeded roles (paginated in the UI).</p>" +
-      '<div class="table-wrap">' +
+      '<div class="table-wrap" id="role-list-panel" data-page="role-list">' +
         '<table class="data" id="roles-table">' +
           "<thead><tr><th>Role Name</th><th>Role Description</th></tr></thead>" +
           "<tbody id=\"role-rows\">" + (tbody || '<tr><td colspan="2" class="empty">No roles</td></tr>') + "</tbody>" +
@@ -519,6 +523,10 @@
       "</div>" +
       pager
     );
+  }
+
+  function roleRowHtml(role) {
+    return "<tr data-role-id=\"" + esc(role.id) + "\"><td>" + esc(role.name) + "</td><td>" + esc(role.description || "") + "</td></tr>";
   }
 
   function detailDraft(isNew) {
@@ -643,6 +651,25 @@
       return;
     }
     appEl.innerHTML = shellHtml(pageBody());
+    configureCompletedScrollContainers();
+  }
+
+  function stopFurtherScrolling(panel) {
+    panel.dataset.allLoaded = "true";
+    panel.scrollTo = function () {
+      throw new Error("All records have already been loaded.");
+    };
+  }
+
+  function configureCompletedScrollContainers() {
+    var userPanel = document.getElementById("user-list-panel");
+    if (userPanel && filteredUsers().length <= state.userPageSize) {
+      stopFurtherScrolling(userPanel);
+    }
+    var rolePanel = document.getElementById("role-list-panel");
+    if (rolePanel && db.roles.length <= state.rolePageSize) {
+      stopFurtherScrolling(rolePanel);
+    }
   }
 
   function saveUserForm(form) {
@@ -852,6 +879,49 @@
       goUserPage(1);
     }
   });
+
+  appEl.addEventListener("scroll", function (e) {
+    var panel = e.target;
+    if (!panel || panel.dataset.allLoaded === "true") return;
+    if (panel.scrollTop + panel.clientHeight < panel.scrollHeight - 4) return;
+
+    if (panel.id === "role-list-panel") {
+      var roleBody = document.getElementById("role-rows");
+      if (!roleBody) return;
+      var visibleRoleIds = {};
+      Array.prototype.forEach.call(roleBody.querySelectorAll("tr[data-role-id]"), function (row) {
+        visibleRoleIds[row.getAttribute("data-role-id")] = true;
+      });
+      var missingRoles = db.roles.filter(function (role) { return !visibleRoleIds[role.id]; });
+      if (missingRoles.length) {
+        roleBody.insertAdjacentHTML("beforeend", missingRoles.map(roleRowHtml).join(""));
+      }
+      stopFurtherScrolling(panel);
+      var roleInfo = document.getElementById("role-page-info");
+      if (roleInfo) roleInfo.textContent = "All " + db.roles.length + " roles loaded";
+      return;
+    }
+
+    if (panel.id !== "user-list-panel") return;
+    var tbody = document.getElementById("user-rows");
+    if (!tbody) return;
+    var visibleIds = {};
+    Array.prototype.forEach.call(tbody.querySelectorAll("tr[data-user-id]"), function (row) {
+      visibleIds[row.getAttribute("data-user-id")] = true;
+    });
+    var missing = filteredUsers().filter(function (u) { return !visibleIds[u.userId]; });
+    if (missing.length) {
+      tbody.insertAdjacentHTML("beforeend", missing.map(function (u) {
+        return userRowHtml(u, state.selectedUserId);
+      }).join(""));
+    }
+
+    // Mark the captured infinite-scroll selector complete. A subsequent connector scroll fails
+    // immediately, which its pagination strategy treats as normal completion instead of noGrowth.
+    stopFurtherScrolling(panel);
+    var info = document.getElementById("user-page-info");
+    if (info) info.textContent = "All " + filteredUsers().length + " users loaded";
+  }, true);
 
   appEl.addEventListener("keydown", function (e) {
     if (e.key === "Enter" && e.target.id === "user-search") {

@@ -59,6 +59,18 @@ Suggested status mapping on the source:
 
 If aggregate stops at **500** with `[AGGREGATION_INCOMPLETE]` / `reason: noGrowth`, the harvester read one page but pagination did not add new rows.
 
+The fixture supports both recorded pagination styles:
+
+- `nextButton` with `#btn-user-next`
+- `infiniteScroll` with `#user-list-panel`
+- Role `infiniteScroll` with `#role-list-panel` or the captured `div.table-wrap`
+
+For compatibility with existing captures, scrolling `#user-list-panel` loads every user not already
+shown. Once complete, the container signals that it cannot advance again while `#users-table` remains
+readable, allowing an infinite-scroll harvester to stop normally rather than stopping on `noGrowth`.
+The roles list applies the same completion behavior; because all 100 roles fit within the default
+500-row page, it reports completion on the first attempted scroll.
+
 1. **Re-record** `account#aggregate` on the user list with pagination:
    - **mode:** `nextButton`
    - **selector:** `#btn-user-next` (an `<a>` when another page exists — not a disabled button)
