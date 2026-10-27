@@ -65,11 +65,10 @@ The fixture supports both recorded pagination styles:
 - `infiniteScroll` with `#user-list-panel`
 - Role `infiniteScroll` with `#role-list-panel` or the captured `div.table-wrap`
 
-For compatibility with existing captures, scrolling `#user-list-panel` loads every user not already
-shown on the first scroll advance. Once complete, the container expands to its full height so the
-captured scroll selector points to a completion sentinel with no remaining scroll extent. The
-harvester therefore observes `atEnd=true` while `#users-table` remains readable and stops normally
-rather than stopping on `noGrowth`.
+For compatibility with existing captures, the first scroll of `#user-list-panel` loads every user not
+already shown. The following scroll exposes a completion sentinel with no remaining scroll extent.
+This gives the harvester one full cycle to read the appended rows before it observes `atEnd=true`,
+while `#users-table` remains readable.
 The roles list applies the same completion behavior; because all 100 roles fit within the default
 500-row page, it reports completion on the first attempted scroll.
 

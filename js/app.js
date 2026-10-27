@@ -907,6 +907,10 @@
       var missingRoles = db.roles.filter(function (role) { return !visibleRoleIds[role.id]; });
       if (missingRoles.length) {
         roleBody.insertAdjacentHTML("beforeend", missingRoles.map(roleRowHtml).join(""));
+        panel.dataset.loadStage = "rows-loaded";
+        var loadedRoleInfo = document.getElementById("role-page-info");
+        if (loadedRoleInfo) loadedRoleInfo.textContent = "All " + db.roles.length + " roles loaded";
+        return;
       }
       stopFurtherScrolling(panel);
       var roleInfo = document.getElementById("role-page-info");
@@ -926,9 +930,13 @@
       tbody.insertAdjacentHTML("beforeend", missing.map(function (u) {
         return userRowHtml(u, state.selectedUserId);
       }).join(""));
+      panel.dataset.loadStage = "rows-loaded";
+      var loadedInfo = document.getElementById("user-page-info");
+      if (loadedInfo) loadedInfo.textContent = "All " + filteredUsers().length + " users loaded";
+      return;
     }
 
-    // Expand the completed container so the connector observes scrollTop max 0 and stops atEnd.
+    // Expose the end marker only on the next advance, after the connector has read appended rows.
     stopFurtherScrolling(panel);
     var info = document.getElementById("user-page-info");
     if (info) info.textContent = "All " + filteredUsers().length + " users loaded";
