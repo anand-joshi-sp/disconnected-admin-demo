@@ -60,6 +60,11 @@ Suggested status mapping on the source:
 The user list shows all 1,000 accounts by default, so a recording with pagination `none` collects
 every account. Page size can still be changed to 100 or 500 from the list.
 
+## Entitlement aggregation (100 roles)
+
+All 100 roles render in `#roles-table`. `#role-list-panel` does not scroll, so an existing
+`infiniteScroll` recording reads the full set and stops at the end of the container.
+
 ## Deploy on Render
 
 1. Push this folder to a GitHub repo (root = this directory).

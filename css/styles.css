@@ -270,8 +270,9 @@ table.data a { color: var(--link); }
 .list-pager .page-num { font-weight: bold; color: var(--purple-dark); }
 .list-pager .page-size select { height: 26px; margin-left: 4px; }
 .table-wrap { max-height: min(70vh, 640px); }
-/* Paged with Next/Previous; an inner scrollbar makes recorders capture it as infinite scroll. */
-#user-list-panel { max-height: none; overflow: visible; }
+/* Inner scrollbars make recordings use infinite scroll, which then fails noGrowth. */
+#user-list-panel,
+#role-list-panel { max-height: none; overflow: visible; }
 .find-form { display: inline-flex; gap: 8px; align-items: center; }
 .account-detail-page {
   background: #fff;
