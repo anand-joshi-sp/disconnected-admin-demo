@@ -62,8 +62,8 @@ every account. Page size can still be changed to 100 or 500 from the list.
 
 ## Entitlement aggregation (100 roles)
 
-All 100 roles render in `#roles-table`. `#role-list-panel` does not scroll, so an existing
-`infiniteScroll` recording reads the full set and stops at the end of the container.
+All 100 roles render in `#roles-table`. `#role-list-panel` reports that it is already scrolled
+to the bottom, so an existing `infiniteScroll` recording keeps the 100 roles and finishes.
 
 ## Deploy on Render
 

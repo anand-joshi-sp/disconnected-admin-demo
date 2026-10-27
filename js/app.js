@@ -645,12 +645,33 @@
     return "";
   }
 
+  // Recordings saved as infinite scroll stop with noGrowth unless the container is already
+  // at the bottom. Both lists render every row, so report that position immediately.
+  function sealListPanel(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.style.setProperty("overflow", "visible", "important");
+    el.style.setProperty("max-height", "none", "important");
+    el.style.setProperty("height", "auto", "important");
+    try {
+      Object.defineProperty(el, "scrollTop", {
+        configurable: true,
+        get: function () {
+          return Math.max(0, el.scrollHeight - el.clientHeight);
+        },
+        set: function () {}
+      });
+    } catch (e) {}
+  }
+
   function render() {
     if (!session) {
       appEl.innerHTML = loginHtml();
       return;
     }
     appEl.innerHTML = shellHtml(pageBody());
+    sealListPanel("user-list-panel");
+    sealListPanel("role-list-panel");
   }
 
   function saveUserForm(form) {
