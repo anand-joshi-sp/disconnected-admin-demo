@@ -1,14 +1,17 @@
 # Disconnected Admin Demo
 
-Static demo fixture for **Disconnected Application** connector demos (aggregate, read, create, modify, enable/disable, delete).
+Demo fixture for **Disconnected Application** connector demos (aggregate, read, create, modify, enable/disable, delete).
 
 ## Run locally
 
-Open `index.html` in a browser, or serve the folder:
+Start the Node server:
 
 ```bash
-npx --yes serve .
+npm start
 ```
+
+The server persists provisioned users in `.data/db.json`, allowing a create followed by a separate
+account-read browser session to find the same user.
 
 ## Sign in
 
@@ -68,5 +71,10 @@ to the bottom, so an existing `infiniteScroll` recording keeps the 100 roles and
 ## Deploy on Render
 
 1. Push this folder to a GitHub repo (root = this directory).
-2. New **Static Site**, connect repo, leave build empty, publish path `.`.
-3. Optional: use `render.yaml` in this folder as a blueprint.
+2. Deploy it as a **Web Service**, not a Static Site.
+3. Build command: `npm install`; start command: `npm start`.
+4. `render.yaml` contains the same configuration.
+
+The default Render filesystem survives browser sessions but is ephemeral across service replacement
+or redeployment. Attach a persistent disk and set `DATA_DIR` to its mount path if demo changes must
+survive deployments.

@@ -3,6 +3,7 @@
 
   var DB_KEY = "disconnected-admin-demo-v3";
   var SESSION_KEY = "disconnected-admin-demo-session";
+  var LOOKUP_KEY = "disconnected-admin-demo-account-lookup";
   var ADMIN_USER = "admin";
   var ADMIN_PASS = "admin123";
   var SEED_USER_COUNT = 1000;
@@ -55,19 +56,43 @@
   }
 
   function loadDb() {
+    var serverDb = loadServerDb();
+    if (isUsableDb(serverDb)) return serverDb;
+
+    var initial;
     try {
       var saved = JSON.parse(localStorage.getItem(DB_KEY) || "null");
-      if (saved && saved.users && saved.roles
-          && saved.users.length >= SEED_USER_COUNT
-          && saved.roles.length >= SEED_ROLE_COUNT) {
-        return saved;
-      }
+      if (isUsableDb(saved)) initial = saved;
     } catch (e) { /* seed */ }
-    return seedDb();
+    if (!initial) initial = seedDb();
+    saveDb(initial);
+    return initial;
+  }
+
+  function isUsableDb(value) {
+    return value && value.users && value.roles
+      && value.users.length > 0
+      && value.roles.length >= SEED_ROLE_COUNT;
+  }
+
+  function loadServerDb() {
+    try {
+      var request = new XMLHttpRequest();
+      request.open("GET", "/api/db", false);
+      request.send();
+      if (request.status === 200) return JSON.parse(request.responseText);
+    } catch (e) { /* local/static fallback */ }
+    return null;
   }
 
   function saveDb(db) {
     localStorage.setItem(DB_KEY, JSON.stringify(db));
+    try {
+      var request = new XMLHttpRequest();
+      request.open("PUT", "/api/db", false);
+      request.setRequestHeader("Content-Type", "application/json");
+      request.send(JSON.stringify(db));
+    } catch (e) { /* local/static fallback */ }
   }
 
   function seedRoles() {
@@ -769,9 +794,12 @@
           return;
         }
         if (parts[2] === "detail" && parts[3]) {
+          var lookup = sessionStorage.getItem(LOOKUP_KEY);
+          var requested = lookup && (findUser(lookup) || findUserByUsername(lookup));
           state.userView = "detail";
-          state.detailUserId = decodeURIComponent(parts[3]);
+          state.detailUserId = requested ? requested.userId : decodeURIComponent(parts[3]);
           state.selectedUserId = state.detailUserId;
+          sessionStorage.removeItem(LOOKUP_KEY);
           return;
         }
         if (parts[2] === "page" && parts[3]) {
@@ -879,6 +907,13 @@
     if (e.target.id === "user-page-size") {
       state.userPageSize = parseInt(e.target.value, 10) || 1000;
       goUserPage(1);
+    }
+  });
+
+  appEl.addEventListener("input", function (e) {
+    if (e.target.id === "user-search") {
+      state.query = e.target.value;
+      sessionStorage.setItem(LOOKUP_KEY, e.target.value);
     }
   });
 
