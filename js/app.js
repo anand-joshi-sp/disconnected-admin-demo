@@ -897,6 +897,13 @@
     var panel = e.target;
     if (!panel || panel.dataset.allLoaded === "true") return;
 
+    if (panel.dataset.loadStage === "rows-loaded") {
+      var loadedAt = parseInt(panel.dataset.loadedAtScrollTop || "0", 10);
+      if (panel.scrollTop <= loadedAt + 4) return;
+      stopFurtherScrolling(panel);
+      return;
+    }
+
     if (panel.id === "role-list-panel") {
       var roleBody = document.getElementById("role-rows");
       if (!roleBody) return;
@@ -908,6 +915,7 @@
       if (missingRoles.length) {
         roleBody.insertAdjacentHTML("beforeend", missingRoles.map(roleRowHtml).join(""));
         panel.dataset.loadStage = "rows-loaded";
+        panel.dataset.loadedAtScrollTop = String(panel.scrollTop);
         var loadedRoleInfo = document.getElementById("role-page-info");
         if (loadedRoleInfo) loadedRoleInfo.textContent = "All " + db.roles.length + " roles loaded";
         return;
@@ -931,6 +939,7 @@
         return userRowHtml(u, state.selectedUserId);
       }).join(""));
       panel.dataset.loadStage = "rows-loaded";
+      panel.dataset.loadedAtScrollTop = String(panel.scrollTop);
       var loadedInfo = document.getElementById("user-page-info");
       if (loadedInfo) loadedInfo.textContent = "All " + filteredUsers().length + " users loaded";
       return;
