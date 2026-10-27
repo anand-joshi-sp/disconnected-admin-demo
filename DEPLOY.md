@@ -57,20 +57,9 @@ Suggested status mapping on the source:
 
 ## Account aggregation (1000 users, 500 per page)
 
-If aggregate stops at **500** with `[AGGREGATION_INCOMPLETE]` / `reason: noGrowth`, the harvester read one page but pagination did not add new rows.
-
-The fixture supports both recorded pagination styles:
-
-- `nextButton` with `#btn-user-next`
-- `infiniteScroll` with `#user-list-panel`
-- Role `infiniteScroll` with `#role-list-panel` or the captured `div.table-wrap`
-
-For compatibility with existing captures, the first scroll of `#user-list-panel` loads every user not
-already shown. The following scroll exposes a completion sentinel with no remaining scroll extent.
-This gives the harvester one full cycle to read the appended rows before it observes `atEnd=true`,
-while `#users-table` remains readable.
-The roles list applies the same completion behavior; because all 100 roles fit within the default
-500-row page, it reports completion on the first attempted scroll.
+The user list is paged (500 rows per page), so aggregation must use `nextButton` pagination. A
+recording with pagination `none` reads only the first page and reports 500 accounts as complete;
+`infiniteScroll` reports `noGrowth`, because scrolling never loads more rows.
 
 1. **Re-record** `account#aggregate` on the user list with pagination:
    - **mode:** `nextButton`
@@ -78,7 +67,8 @@ The roles list applies the same completion behavior; because all 100 roles fit w
    - **maxPages:** at least `3` (1000 users ÷ 500 rows)
    - **settleMs:** `500`–`1000`
 2. **Grid:** `#users-table`, rows `#user-rows > tr`, identity column **Username** (`td[data-identity]` or column 2).
-3. **Pre-steps:** sign-in → User Management → Users → `#/user-management/users/page/1`.
+3. **Pre-steps:** sign-in → User Management → Users → `#/user-management/users/page/1`. Do not record
+   a click on **Next** or on the table container as a step; Next belongs in the pagination setting.
 4. After deploy, confirm manually: page 1 shows 1–500, click **Next**, URL becomes `.../users/page/2` and rows 501–1000 appear.
 
 ## Deploy on Render

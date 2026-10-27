@@ -651,38 +651,6 @@
       return;
     }
     appEl.innerHTML = shellHtml(pageBody());
-    configureCompletedScrollContainers();
-  }
-
-  function stopFurtherScrolling(panel) {
-    panel.dataset.allLoaded = "true";
-    panel.style.maxHeight = "none";
-    panel.style.overflow = "visible";
-
-    var marker = document.createElement("div");
-    marker.setAttribute("aria-hidden", "true");
-    marker.style.cssText = "position:absolute;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none";
-    if (panel.id === "user-list-panel") {
-      panel.id = "user-list-panel-complete";
-      marker.id = "user-list-panel";
-    } else if (panel.id === "role-list-panel") {
-      panel.id = "role-list-panel-complete";
-      panel.classList.remove("table-wrap");
-      panel.classList.add("table-wrap-complete");
-      marker.className = "table-wrap";
-    }
-    panel.parentNode.insertBefore(marker, panel.nextSibling);
-  }
-
-  function configureCompletedScrollContainers() {
-    var userPanel = document.getElementById("user-list-panel");
-    if (userPanel && filteredUsers().length <= state.userPageSize) {
-      stopFurtherScrolling(userPanel);
-    }
-    var rolePanel = document.getElementById("role-list-panel");
-    if (rolePanel && db.roles.length <= state.rolePageSize) {
-      stopFurtherScrolling(rolePanel);
-    }
   }
 
   function saveUserForm(form) {
@@ -892,64 +860,6 @@
       goUserPage(1);
     }
   });
-
-  appEl.addEventListener("scroll", function (e) {
-    var panel = e.target;
-    if (!panel || panel.dataset.allLoaded === "true") return;
-
-    if (panel.dataset.loadStage === "rows-loaded") {
-      var loadedAt = parseInt(panel.dataset.loadedAtScrollTop || "0", 10);
-      if (panel.scrollTop <= loadedAt + 4) return;
-      stopFurtherScrolling(panel);
-      return;
-    }
-
-    if (panel.id === "role-list-panel") {
-      var roleBody = document.getElementById("role-rows");
-      if (!roleBody) return;
-      var visibleRoleIds = {};
-      Array.prototype.forEach.call(roleBody.querySelectorAll("tr[data-role-id]"), function (row) {
-        visibleRoleIds[row.getAttribute("data-role-id")] = true;
-      });
-      var missingRoles = db.roles.filter(function (role) { return !visibleRoleIds[role.id]; });
-      if (missingRoles.length) {
-        roleBody.insertAdjacentHTML("beforeend", missingRoles.map(roleRowHtml).join(""));
-        panel.dataset.loadStage = "rows-loaded";
-        panel.dataset.loadedAtScrollTop = String(panel.scrollTop);
-        var loadedRoleInfo = document.getElementById("role-page-info");
-        if (loadedRoleInfo) loadedRoleInfo.textContent = "All " + db.roles.length + " roles loaded";
-        return;
-      }
-      stopFurtherScrolling(panel);
-      var roleInfo = document.getElementById("role-page-info");
-      if (roleInfo) roleInfo.textContent = "All " + db.roles.length + " roles loaded";
-      return;
-    }
-
-    if (panel.id !== "user-list-panel") return;
-    var tbody = document.getElementById("user-rows");
-    if (!tbody) return;
-    var visibleIds = {};
-    Array.prototype.forEach.call(tbody.querySelectorAll("tr[data-user-id]"), function (row) {
-      visibleIds[row.getAttribute("data-user-id")] = true;
-    });
-    var missing = filteredUsers().filter(function (u) { return !visibleIds[u.userId]; });
-    if (missing.length) {
-      tbody.insertAdjacentHTML("beforeend", missing.map(function (u) {
-        return userRowHtml(u, state.selectedUserId);
-      }).join(""));
-      panel.dataset.loadStage = "rows-loaded";
-      panel.dataset.loadedAtScrollTop = String(panel.scrollTop);
-      var loadedInfo = document.getElementById("user-page-info");
-      if (loadedInfo) loadedInfo.textContent = "All " + filteredUsers().length + " users loaded";
-      return;
-    }
-
-    // Expose the end marker only on the next advance, after the connector has read appended rows.
-    stopFurtherScrolling(panel);
-    var info = document.getElementById("user-page-info");
-    if (info) info.textContent = "All " + filteredUsers().length + " users loaded";
-  }, true);
 
   appEl.addEventListener("keydown", function (e) {
     if (e.key === "Enter" && e.target.id === "user-search") {

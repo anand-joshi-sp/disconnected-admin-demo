@@ -218,8 +218,7 @@ body {
 }
 a.pager-link { text-decoration: none; color: inherit; display: inline-block; }
 
-.table-wrap,
-.table-wrap-complete {
+.table-wrap {
   border: 1px solid var(--line);
   background: #fff;
   overflow: auto;
@@ -270,8 +269,7 @@ table.data a { color: var(--link); }
 }
 .list-pager .page-num { font-weight: bold; color: var(--purple-dark); }
 .list-pager .page-size select { height: 26px; margin-left: 4px; }
-.table-wrap,
-.table-wrap-complete { max-height: min(70vh, 640px); }
+.table-wrap { max-height: min(70vh, 640px); }
 .find-form { display: inline-flex; gap: 8px; align-items: center; }
 .account-detail-page {
   background: #fff;
