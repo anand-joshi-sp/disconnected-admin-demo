@@ -33,7 +33,7 @@
     umTab: "users",
     query: "",
     userPage: 1,
-    userPageSize: 500,
+    userPageSize: 1000,
     rolePage: 1,
     rolePageSize: 500,
     userView: "list",
@@ -472,7 +472,7 @@
 
     return (
       "<h1 class=\"page-title\">Users</h1>" +
-      '<p class="hint">Fixture ships with <strong>' + db.users.length + "</strong> seeded accounts (pagination for UI; full set in storage).</p>" +
+      '<p class="hint">Fixture ships with <strong>' + db.users.length + "</strong> seeded accounts, all shown by default.</p>" +
       '<div class="toolbar" id="users-toolbar">' +
         '<button type="button" class="btn primary" id="btn-new-user">New User</button>' +
         '<button type="button" class="btn" id="btn-edit-user"' + (sel ? "" : " disabled") + ">Edit User</button>" +
@@ -856,7 +856,7 @@
       return;
     }
     if (e.target.id === "user-page-size") {
-      state.userPageSize = parseInt(e.target.value, 10) || 500;
+      state.userPageSize = parseInt(e.target.value, 10) || 1000;
       goUserPage(1);
     }
   });

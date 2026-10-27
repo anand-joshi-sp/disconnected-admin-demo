@@ -55,21 +55,10 @@ Suggested status mapping on the source:
 
 (Map to the schema attribute names you publish from aggregation/read.)
 
-## Account aggregation (1000 users, 500 per page)
+## Account aggregation (1000 users on one page)
 
-The user list is paged (500 rows per page), so aggregation must use `nextButton` pagination. A
-recording with pagination `none` reads only the first page and reports 500 accounts as complete;
-`infiniteScroll` reports `noGrowth`, because scrolling never loads more rows.
-
-1. **Re-record** `account#aggregate` on the user list with pagination:
-   - **mode:** `nextButton`
-   - **selector:** `#btn-user-next` (an `<a>` when another page exists — not a disabled button)
-   - **maxPages:** at least `3` (1000 users ÷ 500 rows)
-   - **settleMs:** `500`–`1000`
-2. **Grid:** `#users-table`, rows `#user-rows > tr`, identity column **Username** (`td[data-identity]` or column 2).
-3. **Pre-steps:** sign-in → User Management → Users → `#/user-management/users/page/1`. Do not record
-   a click on **Next** or on the table container as a step; Next belongs in the pagination setting.
-4. After deploy, confirm manually: page 1 shows 1–500, click **Next**, URL becomes `.../users/page/2` and rows 501–1000 appear.
+The user list shows all 1,000 accounts by default, so a recording with pagination `none` collects
+every account. Page size can still be changed to 100 or 500 from the list.
 
 ## Deploy on Render
 
